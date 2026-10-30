@@ -1,4 +1,4 @@
-# @boobablopars/tgs-to
+# @BoobaBlopars/tgs-to
 
 Convert Telegram animated stickers (`.tgs`) to GIF, WebP, MP4, or JSON.
 
