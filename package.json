@@ -1,0 +1,44 @@
+{
+  "name": "@boobablopars/tgs-to",
+  "version": "2.0.0",
+  "description": "Maintained fork of tgs-to: convert Telegram animated TGS stickers to GIF, WebP, MP4, or JSON.",
+  "main": "index.js",
+  "files": [
+    "index.js",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md"
+  ],
+  "scripts": {
+    "test": "node --test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/BoobaBlopars/tgs-to.git"
+  },
+  "keywords": [
+    "tgs",
+    "telegram",
+    "sticker",
+    "converter",
+    "gif",
+    "webp",
+    "mp4",
+    "lottie"
+  ],
+  "author": "BoobaBlopars",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/BoobaBlopars/tgs-to/issues"
+  },
+  "homepage": "https://github.com/BoobaBlopars/tgs-to#readme",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "dependencies": {
+    "ffmpeg-static": "^5.3.0",
+    "lottie-web": "^5.13.0",
+    "puppeteer": "^25.8.0",
+    "webp-converter": "^3.0.1"
+  }
+}

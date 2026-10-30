@@ -1,115 +1,68 @@
-# tgs-to
+# @boobablopars/tgs-to
 
-## Introduction
+Convert Telegram animated stickers (`.tgs`) to GIF, WebP, MP4, or JSON.
 
-The `tgs-to` module allows you to convert Telegram Animated Sticker (TGS) files to various formats such as GIF, WebP, MP4, Png and Json
-
-## Installation
-
-You can install `tgs-to` via npm:
+## Install
 
 ```bash
-npm install tgs-to
+npm install @boobablopars/tgs-to
 ```
 
 ## Usage
 
-### Import the module and path module:
+```js
+const TGS = require('@boobablopars/tgs-to');
 
-```javascript
-const TGS = require('tgs-to');
-const path = require('path');
+const tgs = new TGS('./sticker.tgs');
+
+async function main() {
+  await tgs.convertToGif('./sticker.gif');
+  await tgs.convertToWebp('./sticker.webp');
+  await tgs.convertToMp4('./sticker.mp4');
+  await tgs.convertTgsToJson('./sticker.json');
+}
+
+main().catch(console.error);
 ```
 
-### Create a new instance of TGS with the path to your TGS file:
+Every `convert*` method resolves with the absolute output path.
 
-```javascript
-const tgs = new TGS(path.join(__dirname, 'sticker.tgs'));
-```
+### Options
 
-### Convert the TGS file to GIF, WebP, and MP4:
-
-```javascript
-Promise.all([
-    tgs.convertToGif(path.join(__dirname, "sticker.gif")),
-    tgs.convertToWebp(path.join(__dirname, 'sticker.webp')),
-    tgs.convertToMp4(path.join(__dirname, 'sticker.mp4'))
-])
-.then(() => {
-    console.log('conversions completed successfully'); 
-})
-.catch(error => {
-    console.error('One or more conversions failed:', error); 
+```js
+new TGS('./sticker.tgs', {
+  puppeteerArgs: ['--no-sandbox'], // needed when running as root, e.g. Docker/CI
+  executablePath: '/usr/bin/chromium', // optional custom Chrome/Chromium
+  timeout: 30000,                      // ms for loading the animation and each page operation
+  maxFrames: 3000                      // refuse animations that would render more output frames
 });
 ```
 
-### Additional debugging steps:-
+## Security
 
-```javascript
+`.tgs` files from untrusted users are safe to convert by design:
 
-const TGS = require('tgs-to');
-const path = require('path');
-const fs = require('fs');
+- Rendering uses `lottie_light`, which has no expression engine, so JavaScript embedded in an animation is never executed.
+- The headless browser blocks all network requests during rendering.
+- Decompressed size is capped at 64MB and frame count at `maxFrames`.
 
-const tgsFilePath = path.join(__dirname, 'sticker.tgs');
-const gifFilePath = path.join(__dirname, 'sticker.gif');
-const webpFilePath = path.join(__dirname, 'sticker.webp');
-const mp4FilePath = path.join(__dirname, 'sticker.mp4');
+You should still run Chromium sandboxed where possible. Only pass `--no-sandbox` (e.g. in Docker) if the container itself is isolated.
 
-const tgs = new TGS(tgsFilePath);
+## Errors
 
-const fileExists = (filePath) => {
-    return new Promise((resolve, reject) => {
-        fs.access(filePath, fs.constants.F_OK, (err) => {
-            if (err) {
-                reject(`File does not exist: ${filePath}`);
-            } else {
-                resolve(`File exists: ${filePath}`);
-            }
-        });
-    });
-};
+Invalid input rejects with an `Error` whose message starts with `Invalid TGS file`. Animations over `maxFrames` reject before any browser is launched.
 
-const logDirectoryContents = (dirPath) => {
-    return new Promise((resolve, reject) => {
-        fs.readdir(dirPath, (err, files) => {
-            if (err) {
-                reject(`Unable to read directory: ${err.message}`);
-            } else {
-                resolve(`Directory contents: ${files.join(', ')}`);
-            }
-        });
-    });
-};
+## Notes
 
-Promise.all([
-    tgs.convertToGif(gifFilePath)
-        .then(() => fileExists(gifFilePath))  
-        .then(() => {
-            console.log('GIF file created successfully.');
-            return tgs.convertToWebp(webpFilePath);
-        })  // Proceed with WebP conversion
-        .then(() => fileExists(webpFilePath))
-        .then(() => {
-            console.log('WebP file created successfully.');
-        }),
-    tgs.convertToMp4(mp4FilePath)
-        .then(() => fileExists(mp4FilePath))
-        .then(() => {
-            console.log('MP4 file created successfully.');
-        })
-])
-.then(() => {
-    console.log('All conversions completed successfully'); 
-    return logDirectoryContents(__dirname);
-})
-.then((contents) => {
-    console.log(contents);
-})
-.catch(error => {
-    console.error('One or more conversions failed', error); 
-});
+- Node.js 22.12+ required (Puppeteer 25). Run tests with `npm test` (needs a working Chromium).
+- `lottie-web` is bundled; rendering works offline (no CDN).
+- Each conversion uses its own temporary workspace, so conversions can run concurrently. Temp files are removed afterwards.
+- GIF/WebP are capped at 50fps (GIF timing limit); 60fps stickers are down-sampled so speed stays correct.
+- MP4 has no alpha channel, so transparent areas render black.
+- Puppeteer needs a compatible Chrome/Chromium; on Linux extra system libraries may be required.
+- Upgrading from `tgs-to` 1.0.x: see [CHANGELOG](CHANGELOG.md) for API changes.
+- This is a maintained fork of [`tgs-to`](https://github.com/VIGNESHSHYAM/tgs-to) by vignesh-a (also on [npm](https://www.npmjs.com/package/tgs-to)). It is not the official release and is not affiliated with or endorsed by the original author. Licensed under ISC; see LICENSE for both copyright lines.
 
-```
+## License
 
-Make sure to replace 'sticker.tgs' with the path to your TGS file and adjust the output file names ('sticker.gif', 'sticker.webp', 'sticker.mp4') as needed.
+ISC
