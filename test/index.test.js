@@ -42,6 +42,26 @@ test('rejects animations over maxFrames before launching a browser', async () =>
     } finally { fs.rmSync(f, { force: true }); }
 });
 
+test('validates fps and size options', () => {
+    assert.throws(() => new TGS(sticker, { fps: 0 }), RangeError);
+    assert.throws(() => new TGS(sticker, { fps: 120 }), RangeError);
+    assert.throws(() => new TGS(sticker, { size: 4 }), RangeError);
+    assert.throws(() => new TGS(sticker, { size: 'big' }), RangeError);
+    assert.doesNotThrow(() => new TGS(sticker, { fps: 15, size: 400 }));
+});
+
+test('fps and size options change the output', { timeout: 300000 }, async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'tgs-opt-'));
+    try {
+        const small = await new TGS(sticker, { puppeteerArgs: launchArgs, fps: 10, size: 128 }).convertToGif(path.join(dir, 'small.gif'));
+        const full = await new TGS(sticker, { puppeteerArgs: launchArgs }).convertToGif(path.join(dir, 'full.gif'));
+        const width = (f) => fs.readFileSync(f).readUInt16LE(6); // GIF logical screen width
+        assert.strictEqual(width(small), 128);
+        assert.strictEqual(width(full), 512);
+        assert.ok(fs.statSync(small).size < fs.statSync(full).size / 4, 'low fps + size should be much smaller');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
 test('rejects a non-TGS file', async () => {
     const bad = path.join(os.tmpdir(), `bad-${process.pid}.tgs`);
     fs.writeFileSync(bad, 'not a tgs');
