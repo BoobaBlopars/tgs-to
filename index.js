@@ -9,7 +9,7 @@ const webp = require('webp-converter');
 const { spawn } = require('child_process');
 const ffmpegStaticPath = require('ffmpeg-static');
 
-const SIZE = 512;
+const DEFAULT_SIZE = 512;
 const MAX_INFLATED_BYTES = 64 * 1024 * 1024; // guard against decompression bombs
 const DEFAULT_MAX_FRAMES = 3000; // output frames (60s at 50fps)
 const MAX_FPS = 50; // GIF delays are stored in 1/100 s, so >50fps cannot play at the right speed.
@@ -25,6 +25,14 @@ function getLottieSource() {
     return lottieSource;
 }
 
+function checkNumber(name, value, fallback, min, max) {
+    if (value === undefined || value === null) return fallback;
+    if (!Number.isFinite(value) || value < min || value > max) {
+        throw new RangeError(`Option "${name}" must be a number between ${min} and ${max}.`);
+    }
+    return value;
+}
+
 class TGS {
     /**
      * @param {string} tgsFilePath Path to a .tgs file.
@@ -32,6 +40,8 @@ class TGS {
      * @param {string[]} [options.puppeteerArgs] Extra Chromium args, e.g. ['--no-sandbox'] in Docker/CI.
      * @param {string} [options.executablePath] Custom Chrome/Chromium binary.
      * @param {number} [options.timeout=30000] Timeout (ms) for loading the animation and for each page operation.
+     * @param {number} [options.fps=50] Maximum output frame rate (1-50). Lower = smaller files and faster conversion.
+     * @param {number} [options.size=512] Output width/height in pixels (16-1024).
      * @param {string} [options.ffmpegPath] Use this ffmpeg binary instead of the bundled ffmpeg-static one.
      * @param {number} [options.maxFrames=3000] Refuse animations that would render more output frames than this.
      */
@@ -42,6 +52,8 @@ class TGS {
             puppeteerArgs: options.puppeteerArgs || [],
             executablePath: options.executablePath,
             ffmpegPath: options.ffmpegPath || ffmpegStaticPath,
+            fps: checkNumber('fps', options.fps, MAX_FPS, 1, MAX_FPS),
+            size: Math.round(checkNumber('size', options.size, DEFAULT_SIZE, 16, 1024) / 2) * 2, // even: required by yuv420p MP4
             timeout: options.timeout || 30000,
             maxFrames: options.maxFrames || DEFAULT_MAX_FRAMES
         };
@@ -80,13 +92,14 @@ class TGS {
         fs.mkdirSync(framesDir, { recursive: true });
 
         const totalSourceFrames = animationData.op - animationData.ip;
-        const outFps = Math.min(animationData.fr, MAX_FPS);
+        const outFps = Math.min(animationData.fr, this.options.fps);
         const outFrameCount = Math.max(1, Math.round((totalSourceFrames / animationData.fr) * outFps));
         const step = animationData.fr / outFps; // source frames per output frame (1 when fr <= MAX_FPS)
         if (outFrameCount > this.options.maxFrames) {
             throw new Error(`Animation has ${outFrameCount} frames, over the limit of ${this.options.maxFrames} (see the maxFrames option).`);
         }
 
+        const SIZE = this.options.size;
         let browser;
         try {
             const launchOptions = { headless: true, args: this.options.puppeteerArgs };
@@ -173,6 +186,7 @@ class TGS {
     }
 
     async _framesToGif(framesDir, fps, gifPath) {
+        const SIZE = this.options.size;
         // Two-pass palette keeps colours clean and preserves transparency.
         const filter = `scale=${SIZE}:-1:flags=lanczos,split[a][b];` +
             `[a]palettegen=reserve_transparent=1[p];[b][p]paletteuse=alpha_threshold=128`;
@@ -217,7 +231,8 @@ class TGS {
             if (typeof webp.grant_permission === 'function') {
                 try { await webp.grant_permission(); } catch (_) { /* binaries may already be executable */ }
             }
-            await webp.gwebp(gifPath, outputPath, '-q 80');
+            // -m 2 is ~6x faster than the default method with almost identical size.
+            await webp.gwebp(gifPath, outputPath, '-q 80 -m 2 -mt');
             if (!fs.existsSync(outputPath) || fs.statSync(outputPath).size === 0) {
                 throw new Error('WebP conversion failed: no output was produced.');
             }
@@ -229,6 +244,7 @@ class TGS {
         return this._withWorkspace(outputPath, async (workspace) => {
             // Encode straight from the PNG frames (no lossy GIF in between).
             const { framesDir, fps } = await this._renderToWorkspace(workspace);
+            const SIZE = this.options.size;
             await this._runFfmpeg(path.join(framesDir, 'frame_%d.png'), fps, outputPath, [
                 '-vf', `scale=${SIZE}:-1:flags=lanczos,format=yuv420p`,
                 '-movflags', '+faststart'

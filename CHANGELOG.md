@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.1.0
+- New options `fps` (cap the frame rate) and `size` (output pixel size). Lower values make conversion much faster and files much smaller.
+- WebP encoding now uses a faster encoder setting (`-m 2 -mt`): about 6x faster than before with a nearly identical file size.
+- Verified end to end with a real `gif2webp` build and with a Discord/WhatsApp-style bot that calls `new TGS(path).convertToWebp(out)`.
+
 ## 2.0.0
 
 First release of this fork. Changes relative to upstream `tgs-to` 1.0.6:

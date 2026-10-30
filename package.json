@@ -1,6 +1,6 @@
 {
   "name": "@boobablopars/tgs-to",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "Maintained fork of tgs-to: convert Telegram animated TGS stickers to GIF, WebP, MP4, or JSON.",
   "main": "index.js",
   "files": [
