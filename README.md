@@ -1,12 +1,16 @@
-# @BoobaBlopars/tgs-to
+# @boobablopars/tgs-to
 
 Convert Telegram animated stickers (`.tgs`) to GIF, WebP, MP4, or JSON.
+
+> Maintained fork of [`tgs-to`](https://github.com/VIGNESHSHYAM/tgs-to) by vignesh-a. See [Credits](#credits).
 
 ## Install
 
 ```bash
 npm install @boobablopars/tgs-to
 ```
+
+Requires Node.js 22.12 or newer.
 
 ## Usage
 
@@ -25,44 +29,59 @@ async function main() {
 main().catch(console.error);
 ```
 
-Every `convert*` method resolves with the absolute output path.
+Conversions can run in parallel (`Promise.all`); each uses its own temporary workspace.
 
-### Options
+## API
 
-```js
-new TGS('./sticker.tgs', {
-  puppeteerArgs: ['--no-sandbox'], // needed when running as root, e.g. Docker/CI
-  executablePath: '/usr/bin/chromium', // optional custom Chrome/Chromium
-  timeout: 30000,                      // ms for loading the animation and each page operation
-  maxFrames: 3000                      // refuse animations that would render more output frames
-});
-```
+### `new TGS(tgsFilePath, [options])`
+
+| Option | Default | Description |
+|---|---|---|
+| `puppeteerArgs` | `[]` | Extra Chromium arguments, e.g. `['--no-sandbox']` when running as root (Docker/CI). |
+| `executablePath` | Puppeteer's Chromium | Path to a custom Chrome/Chromium binary. |
+| `ffmpegPath` | `ffmpeg-static` | Path to a custom ffmpeg binary. |
+| `timeout` | `30000` | Milliseconds allowed for loading the animation and for each page operation. |
+| `maxFrames` | `3000` | Refuse animations that would render more output frames than this. |
+
+### Methods
+
+All methods return a promise that resolves with the absolute output path. Missing output folders are created.
+
+| Method | Output |
+|---|---|
+| `convertToGif(path)` | Animated GIF, 512px wide, transparency kept. |
+| `convertToWebp(path)` | Animated WebP (made from the GIF). |
+| `convertToMp4(path)` | H.264 MP4. MP4 has no alpha channel, so transparent areas render black. |
+| `convertTgsToJson(path)` | The decompressed Lottie JSON. If `path` is omitted, it is written next to the current working directory as `<name>.json`. |
+
+### Errors
+
+Every failure rejects with an `Error`. Bad input messages start with `Invalid TGS file`. Animations over `maxFrames` reject before any browser is launched. ffmpeg failures include ffmpeg's own message.
+
+## Behaviour notes
+
+- GIF/WebP/MP4 are capped at 50fps (the GIF timing limit); 60fps stickers are down-sampled so playback speed stays correct.
+- `lottie-web` is bundled, so rendering works offline.
+- Puppeteer needs a compatible Chrome/Chromium; on Linux extra system libraries may be required.
+- Run the tests with `npm test` (needs a working Chromium).
 
 ## Security
 
-`.tgs` files from untrusted users are safe to convert by design:
+This package is hardened for converting `.tgs` files from untrusted sources, but no browser-based converter is risk-free, so isolate it as you would any service that processes user uploads.
 
-- Rendering uses `lottie_light`, which has no expression engine, so JavaScript embedded in an animation is never executed.
-- The headless browser blocks all network requests during rendering.
+- Rendering uses lottie-web's `lottie_light` build, which has no expression engine, so JavaScript embedded in an animation is not executed.
+- The headless browser blocks all network requests while rendering.
 - Decompressed size is capped at 64MB and frame count at `maxFrames`.
+- Only pass `--no-sandbox` if the container itself is isolated.
 
-You should still run Chromium sandboxed where possible. Only pass `--no-sandbox` (e.g. in Docker) if the container itself is isolated.
+## Changes from the original
 
-## Errors
+Migrating from `tgs-to` 1.0.x? Install this package under its new name and read the [CHANGELOG](CHANGELOG.md): `convertTgsToJson` now takes an output path, the low-level helper methods were removed, and Node 22.12+ is required.
 
-Invalid input rejects with an `Error` whose message starts with `Invalid TGS file`. Animations over `maxFrames` reject before any browser is launched.
+## Credits
 
-## Notes
-
-- Node.js 22.12+ required (Puppeteer 25). Run tests with `npm test` (needs a working Chromium).
-- `lottie-web` is bundled; rendering works offline (no CDN).
-- Each conversion uses its own temporary workspace, so conversions can run concurrently. Temp files are removed afterwards.
-- GIF/WebP are capped at 50fps (GIF timing limit); 60fps stickers are down-sampled so speed stays correct.
-- MP4 has no alpha channel, so transparent areas render black.
-- Puppeteer needs a compatible Chrome/Chromium; on Linux extra system libraries may be required.
-- Upgrading from `tgs-to` 1.0.x: see [CHANGELOG](CHANGELOG.md) for API changes.
-- This is a maintained fork of [`tgs-to`](https://github.com/VIGNESHSHYAM/tgs-to) by vignesh-a (also on [npm](https://www.npmjs.com/package/tgs-to)). It is not the official release and is not affiliated with or endorsed by the original author. Licensed under ISC; see LICENSE for both copyright lines.
+This is a maintained fork of [`tgs-to`](https://github.com/VIGNESHSHYAM/tgs-to) by vignesh-a (also on [npm](https://www.npmjs.com/package/tgs-to)). It is not the official release and is not affiliated with or endorsed by the original author.
 
 ## License
 
-ISC
+ISC. See [LICENSE](LICENSE) for both copyright lines.
